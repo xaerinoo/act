@@ -279,7 +279,7 @@ function addNotif() {
 
   playSound();
 
-  while (area.children.length >= MAX_VISIBLE) {
+  if (area.children.length >= MAX_VISIBLE) {
     const old = area.lastElementChild;
     old.classList.add('hiding');
     setTimeout(() => old.remove(), 320);
