@@ -202,6 +202,8 @@ const thumbGrads = [
 ];
 
 const MAX_VISIBLE = 5;
+const TOTAL_NOTIFS = 10;
+let notifCount = 0;
 let audioCtx = null;
 
 function getAudio() {
@@ -211,10 +213,13 @@ function getAudio() {
   return audioCtx;
 }
 
-function playSound() {
+async function playSound() {
   const ctx = getAudio();
   if (!ctx) return;
-  if (ctx.state === 'suspended') ctx.resume();
+  if (ctx.state === 'suspended') {
+    try { await ctx.resume(); } catch(e) { return; }
+  }
+  if (ctx.state !== 'running') return;
   const t = ctx.currentTime;
 
   function tone(freq, start, dur, vol, type='sine') {
@@ -251,7 +256,23 @@ function makeThumbCanvas(g) {
   return c;
 }
 
+// 첫 인터랙션으로 오디오 활성화 및 resume
+async function unlockAudio() {
+  const ctx = getAudio();
+  if (ctx && ctx.state === 'suspended') await ctx.resume();
+}
+document.addEventListener('touchstart', unlockAudio, { once: true });
+document.addEventListener('click', unlockAudio, { once: true });
+
+// 알림 스케줄: 빠르고 랜덤하게, 총 10개
+function scheduleNext() {
+  if (notifCount >= TOTAL_NOTIFS) return;
+  const delay = 700 + Math.random() * 1300; // 0.7~2초 랜덤
+  setTimeout(() => { addNotif(); scheduleNext(); }, delay);
+}
+
 function addNotif() {
+  notifCount++;
   const area = document.getElementById('notifArea');
   const user = users[Math.floor(Math.random() * users.length)];
   const grad = thumbGrads[Math.floor(Math.random() * thumbGrads.length)];
@@ -292,16 +313,6 @@ function addNotif() {
 
   area.insertBefore(card, area.firstChild);
   requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('visible')));
-}
-
-// 첫 인터랙션으로 오디오 활성화
-document.addEventListener('touchstart', () => getAudio(), { once: true });
-document.addEventListener('click', () => getAudio(), { once: true });
-
-// 알림 스케줄: 빠르고 랜덤하게
-function scheduleNext() {
-  const delay = 700 + Math.random() * 1300; // 0.7~2초 랜덤
-  setTimeout(() => { addNotif(); scheduleNext(); }, delay);
 }
 
 setTimeout(() => { addNotif(); scheduleNext(); }, 800);
