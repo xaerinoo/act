@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Lock Screen</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  }
+  #screen {
+    width: 100vw; height: 100vh;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 60% 25%, #3a4a8a 0%, #1e2d6b 40%, #0d1a3e 75%, #060d20 100%);
+  }
+  #screen::before {
+    content: '';
+    position: absolute;
+    top: -80px; left: -80px;
+    width: 55vw; height: 55vw;
+    background: radial-gradient(circle, rgba(80,100,190,0.45) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  #screen::after {
+    content: '';
+    position: absolute;
+    bottom: 10vh; right: -10vw;
+    width: 45vw; height: 45vw;
+    background: radial-gradient(circle, rgba(40,60,150,0.3) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .status-bar {
+    position: absolute;
+    top: env(safe-area-inset-top, 14px);
+    left: 0; right: 0;
+    padding: 8px 22px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+  }
+  .status-time-small {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .status-icons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .clock-area {
+    position: absolute;
+    top: 18vh;
+    left: 0; right: 0;
+    text-align: center;
+    z-index: 5;
+  }
+  .clock-time {
+    font-size: min(22vw, 96px);
+    font-weight: 200;
+    color: #fff;
+    letter-spacing: -2px;
+    line-height: 1;
+  }
+  .clock-date {
+    font-size: min(4.5vw, 18px);
+    font-weight: 400;
+    color: rgba(255,255,255,0.85);
+    margin-top: 6px;
+    letter-spacing: 0.2px;
+  }
+  #notifArea {
+    position: absolute;
+    top: 42vh;
+    left: 12px; right: 12px;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .notif-card {
+    background: rgba(190,205,230,0.25);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 20px;
+    padding: 13px 14px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    border: 0.5px solid rgba(255,255,255,0.22);
+    opacity: 0;
+    transform: translateY(-18px) scale(0.96);
+    transition: opacity 0.38s ease, transform 0.38s cubic-bezier(0.34,1.4,0.64,1);
+  }
+  .notif-card.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  .notif-card.hiding {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+  }
+  .insta-icon {
+    width: 40px; height: 40px;
+    border-radius: 11px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #ffd600 0%, #ff7200 30%, #e6005a 65%, #9400aa 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .insta-icon svg { width: 23px; height: 23px; }
+  .notif-text { flex: 1; min-width: 0; }
+  .notif-app-row {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.88);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .notif-dot { color: rgba(255,255,255,0.4); font-size: 10px; }
+  .notif-time-label { font-weight: 400; font-size: 11px; color: rgba(255,255,255,0.55); }
+  .notif-msg {
+    font-size: min(3.4vw, 14px);
+    font-weight: 400;
+    color: rgba(255,255,255,0.88);
+    margin-top: 2px;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .notif-thumb {
+    width: 46px; height: 46px;
+    border-radius: 11px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .notif-thumb canvas { width: 100%; height: 100%; }
+  .home-indicator {
+    position: absolute;
+    bottom: max(env(safe-area-inset-bottom, 8px), 8px);
+    left: 50%; transform: translateX(-50%);
+    width: 35vw; max-width: 130px; height: 5px;
+    background: rgba(255,255,255,0.4);
+    border-radius: 3px;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="status-bar">
+    <span class="status-time-small">1:34</span>
+    <div class="status-icons">
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="white">
+        <rect x="0" y="4" width="3" height="8" rx="1"/>
+        <rect x="4.5" y="2.5" width="3" height="9.5" rx="1"/>
+        <rect x="9" y="0.5" width="3" height="11.5" rx="1"/>
+        <rect x="13.5" y="0.5" width="3" height="11.5" rx="1" opacity="0.3"/>
+      </svg>
+      <svg width="16" height="12" viewBox="0 0 24 17" fill="white">
+        <path d="M12 3C8.1 3 4.6 4.6 2 7.2L4.1 9.3C6.1 7.3 8.9 6 12 6s5.9 1.3 7.9 3.3L22 7.2C19.4 4.6 15.9 3 12 3zm0 6c-2.1 0-4 .8-5.4 2.2L8.7 13.3c.9-.9 2.1-1.4 3.3-1.4s2.4.5 3.3 1.4l2.1-2.1C16 9.8 14.1 9 12 9zm0 5.5L14.5 17l-2.5 3-2.5-3L12 14.5z"/>
+      </svg>
+      <svg width="27" height="12" viewBox="0 0 27 12" fill="none">
+        <rect x="0.5" y="0.5" width="22" height="11" rx="3.5" stroke="white" stroke-opacity="0.4"/>
+        <rect x="2" y="2" width="18" height="8" rx="2" fill="white"/>
+        <path d="M24.5 4v4a2 2 0 000-4z" fill="white" fill-opacity="0.45"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="clock-area">
+    <div class="clock-time">1:34</div>
+    <div class="clock-date">Monday, May 19</div>
+  </div>
+
+  <div id="notifArea"></div>
+  <div class="home-indicator"></div>
+</div>
+
+<script>
+const users = [
+  "jihoon_travel","soyeon__97","mingyu.lens","hana.wanderer",
+  "jaemin_pics","yuna.daily","dohyun_dev","sumin_life","taeil.photo",
+  "chaeyoung_j","woojin__k","narae.daily","hyunjin_v","seojun99",
+  "minji_moment","ryujin_art","dongwook.j","bora__snap","jiyeon_log",
+  "kyungmin_k","sua_photography","heejin.daily","junho_travels",
+  "rina_pics","minseo.0","taehwan_v","yoojin_snap","jungwoo.art",
+  "eunji_diary","sihyun_k","naeun.daily","jaehyun_log","sujin_photo",
+  "sanghyun.v","dawon_life","minjun_k","hayoung_art","jihye_snap"
+];
+
+const thumbGrads = [
+  ["#89c4f4","#2e6fbd"],["#d7a8e0","#7d3aa0"],["#a8d8a8","#3a7a3a"],
+  ["#f0b080","#b05a20"],["#f9e090","#c8890a"],["#f0a0c0","#b03060"],
+  ["#80e0d8","#207878"],["#a0c0f0","#2050a0"],["#f0c0a0","#a04020"],
+  ["#c0e0a0","#406020"],["#e0a0d0","#703060"],["#a0d0e8","#205878"]
+];
+
+const MAX_VISIBLE = 5;
+let audioCtx = null;
+
+function getAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  return audioCtx;
+}
+
+function playSound() {
+  const ctx = getAudio();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  const t = ctx.currentTime;
+
+  function tone(freq, start, dur, vol, type='sine') {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t + start);
+    g.gain.setValueAtTime(0.001, t + start);
+    g.gain.linearRampToValueAtTime(vol, t + start + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.001, t + start + dur);
+    o.start(t + start); o.stop(t + start + dur + 0.05);
+  }
+
+  // 띠링! 두 음절: 높은 단음 + 약간 낮은 울림
+  tone(1567, 0,    0.12, 0.22, 'triangle');
+  tone(2093, 0,    0.09, 0.12, 'sine');
+  tone(1318, 0.10, 0.22, 0.18, 'triangle');
+  tone(1047, 0.10, 0.30, 0.08, 'sine');
+  // 잔향
+  tone(1318, 0.30, 0.18, 0.06, 'sine');
+}
+
+function makeThumbCanvas(g) {
+  const c = document.createElement('canvas');
+  c.width = 46; c.height = 46;
+  const cx = c.getContext('2d');
+  const grd = cx.createLinearGradient(0,0,46,46);
+  grd.addColorStop(0, g[0]); grd.addColorStop(1, g[1]);
+  cx.fillStyle = grd; cx.fillRect(0,0,46,46);
+  cx.fillStyle = 'rgba(255,255,255,0.18)';
+  cx.beginPath(); cx.arc(15,14,10,0,Math.PI*2); cx.fill();
+  cx.fillStyle = 'rgba(255,255,255,0.1)'; cx.fillRect(0,30,46,16);
+  return c;
+}
+
+function addNotif() {
+  const area = document.getElementById('notifArea');
+  const user = users[Math.floor(Math.random() * users.length)];
+  const grad = thumbGrads[Math.floor(Math.random() * thumbGrads.length)];
+
+  playSound();
+
+  while (area.children.length >= MAX_VISIBLE) {
+    const old = area.lastElementChild;
+    old.classList.add('hiding');
+    setTimeout(() => old.remove(), 320);
+  }
+
+  const card = document.createElement('div');
+  card.className = 'notif-card';
+
+  const thumb = document.createElement('div');
+  thumb.className = 'notif-thumb';
+  thumb.appendChild(makeThumbCanvas(grad));
+
+  card.innerHTML = `
+    <div class="insta-icon">
+      <svg viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="2" width="20" height="20" rx="5.5" stroke="white" stroke-width="2"/>
+        <circle cx="12" cy="12" r="4.5" stroke="white" stroke-width="2"/>
+        <circle cx="17.5" cy="6.5" r="1.3" fill="white"/>
+      </svg>
+    </div>
+    <div class="notif-text">
+      <div class="notif-app-row">
+        <span>Instagram</span>
+        <span class="notif-dot">·</span>
+        <span class="notif-time-label">지금</span>
+      </div>
+      <div class="notif-msg">${user}가 회원님의 사진을 좋아합니다.</div>
+    </div>
+  `;
+  card.appendChild(thumb);
+
+  area.insertBefore(card, area.firstChild);
+  requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('visible')));
+}
+
+// 첫 인터랙션으로 오디오 활성화
+document.addEventListener('touchstart', () => getAudio(), { once: true });
+document.addEventListener('click', () => getAudio(), { once: true });
+
+// 알림 스케줄: 빠르고 랜덤하게
+function scheduleNext() {
+  const delay = 700 + Math.random() * 1300; // 0.7~2초 랜덤
+  setTimeout(() => { addNotif(); scheduleNext(); }, delay);
+}
+
+setTimeout(() => { addNotif(); scheduleNext(); }, 800);
+</script>
+</body>
+</html>
